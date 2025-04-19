@@ -160,25 +160,33 @@ const r = new Request(testFlightURL);
 r.headers = {
   "Accept-Language": "en-us"
 };
-const wv = new WebView();
-await wv.loadRequest(r);
-const betaInfo = await wv.evaluateJavaScript(`
-  "use strict";
-  const statusText = document.getElementsByClassName("beta-status")[0]
-    .getElementsByTagName("span")[0]
-    .innerText;
-  let status;
-  if (statusText === "This beta is full.") status = "full";
-  if (statusText.startsWith("This beta isn't accepting")) status = "closed";
-  if (!status) status = "open";
-  let iconURL;
-  if (status !== "closed") {
-    iconURL = document.getElementsByClassName("app-icon")[0]
-      .style
-      .backgroundImage;
-  }
-  completion({ status, iconURL });
-`, true);
+await r.load();
+
+let betaInfo = {status: "unknown"};
+if (r.response.statusCode === 404) {
+  betaInfo = {status: "deleted"};
+} else {
+  const wv = new WebView();
+  await wv.loadRequest(r);
+  
+  betaInfo = await wv.evaluateJavaScript(`
+    "use strict";
+    const statusText = document.getElementsByClassName("beta-status")[0]
+      .getElementsByTagName("span")[0]
+      .innerText;
+    let status;
+    if (statusText === "This beta is full.") status = "full";
+    if (statusText.startsWith("This beta isn't accepting")) status = "closed";
+    if (!status) status = "open";
+    let iconURL;
+    if (status !== "closed") {
+      iconURL = document.getElementsByClassName("app-icon")[0]
+        .style
+        .backgroundImage;
+    }
+    completion({ status, iconURL });
+  `, true);
+}
 
 const widget = new ListWidget();
 
