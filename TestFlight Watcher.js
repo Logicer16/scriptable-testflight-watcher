@@ -181,27 +181,62 @@ const betaInfo = await wv.evaluateJavaScript(`
 `, true);
 
 const widget = new ListWidget();
+let container = widget;
 
-if (betaInfo.iconURL) {
-  const imageReq = new Request(betaInfo.iconURL.match(/url\("(.*)"\)/)[1]);
-  const icon = widget.addImage(await imageReq.loadImage());
-  icon.centerAlignImage();
-  icon.containerRelativeShape = true;
-
-  widget.addSpacer(null);
+if (config.widgetFamily === "accessoryRectangular") {
+  container = widget.addStack();
+  container.centerAlignContent();
 }
 
-const messageText = prefs.appName + " beta is " + betaInfo.status;
+if (betaInfo.iconURL && config.widgetFamily !== "accessoryInline") {
+  const imageReq = new Request(betaInfo.iconURL.match(/url\("(.*)"\)/)[1]);
+  const image = await imageReq.loadImage();
 
-widget.addText(messageText).centerAlignText();
+  let iconWidth = 0;
+  switch (config.widgetFamily) {
+    case "accessoryCircular":
+    case "accessoryInline":
+      iconWidth = 35;
+      break;
+    case "medium":
+      iconWidth = 90;
+      break;
+    case "large":
+    case "extraLarge":
+      iconWidth = 200;
+      break;
+    case "small":
+    case "accessoryRectangular":
+    // Preview size
+    default:
+      iconWidth = 45;
+  }
+  iconWidth = Math.min(iconWidth, image.size.width)
+
+  const icon = container.addImage(image);
+  icon.centerAlignImage();
+
+  icon.imageSize = new Size(iconWidth, iconWidth);
+  // https://stackoverflow.com/a/11527842/15752250
+  icon.cornerRadius = iconWidth * 0.2237;
+
+  container.addSpacer(5);
+}
+
+let messageText = `${prefs.appName} beta ${betaInfo.status === "deleted" ? "has been" : "is"} ${betaInfo.status}`;
+if (config.widgetFamily === "accessoryCircular") {
+  messageText = betaInfo.status.charAt(0).toUpperCase() + betaInfo.status.slice(1);
+}
+
+container.addText(messageText).centerAlignText();
 
 if (betaInfo.status === "open") {
   widget.backgroundColor = Color.green();
-  
+
   if (prefs.notify) {
     const copyURL = new CallbackURL(URLScheme.forRunningScript());
     copyURL.addParameter("copyTFLink", testFlightURL);
-    
+
     const n = new Notification();
     n.title = messageText;
     n.body = `Join the ${prefs.appName} beta now`;
